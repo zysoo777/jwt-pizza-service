@@ -69,9 +69,22 @@ beforeAll(async () => {
   storeId = extractId(storeRes.body);
   expect(storeId).toBeTruthy();
 
-  // Get one menu item for order creation
-  const menu = await DB.getMenu();
+  // Get one menu item for order creation (seed if empty)
+  let menu = await DB.getMenu();
   expect(Array.isArray(menu)).toBe(true);
+
+  if (menu.length === 0) {
+    const seed = await request(app)
+      .put('/api/order/menu')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ title: 'Seed Pizza', description: 'seed', image: 'seed.png', price: 0.01 });
+
+    expect(seed.status).toBe(200);
+
+    menu = await DB.getMenu();
+    expect(Array.isArray(menu)).toBe(true);
+  }
+
   expect(menu.length).toBeGreaterThan(0);
   menuItem = menu[0];
   expect(menuItem?.id).toBeTruthy();
