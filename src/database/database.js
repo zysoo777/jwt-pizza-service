@@ -99,6 +99,54 @@ class DB {
     }
   }
 
+  async getUsers() {
+    const connection = await this.getConnection();
+    try {
+      const users = await this.query(connection, `SELECT id, name, email FROM user`);
+      if (users.length === 0) {
+        return [];
+      }
+
+      const ids = users.map((u) => u.id);
+      const roleRows = await this.query(connection, `SELECT userId, role, objectId FROM userRole WHERE userId IN (${ids.join(',')})`);
+
+      const rolesByUser = new Map();
+      for (const r of roleRows) {
+        if (!rolesByUser.has(r.userId)) {
+          rolesByUser.set(r.userId, []);
+        }
+        rolesByUser.get(r.userId).push({ objectId: r.objectId || undefined, role: r.role });
+      }
+
+      for (const u of users) {
+        u.roles = rolesByUser.get(u.id) || [];
+        u.password = undefined;
+      }
+
+      return users;
+    } finally {
+      connection.end();
+    }
+  }
+
+  async deleteUser(userId) {
+    const connection = await this.getConnection();
+    try {
+      await connection.beginTransaction();
+      try {
+        await this.query(connection, `DELETE FROM userRole WHERE userId=?`, [userId]);
+        await this.query(connection, `DELETE FROM auth WHERE userId=?`, [userId]);
+        await this.query(connection, `DELETE FROM user WHERE id=?`, [userId]);
+        await connection.commit();
+      } catch {
+        await connection.rollback();
+        throw new StatusCodeError('unable to delete user', 500);
+      }
+    } finally {
+      connection.end();
+    }
+  }
+
   async loginUser(userId, token) {
     token = this.getTokenSignature(token);
     const connection = await this.getConnection();
