@@ -88,20 +88,20 @@ jobs:
         with:
           name: package
           path: dist/
-      
+
   deploy:
-      runs-on: ubuntu-latest
-      permissions:
-        id-token: write
-      needs: build
-      env:
-        version: ${{needs.build.outputs.version}}
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    needs: build
+    env:
+      version: ${{needs.build.outputs.version}}
 
       steps:
         - name: Download distribution artifact
           uses: actions/download-artifact@v4
           with:
-          name: package
+            name: package
 
         - name: Create OIDC token to AWS
           uses: aws-actions/configure-aws-credentials@v4
@@ -109,11 +109,11 @@ jobs:
             audience: sts.amazonaws.com
             aws-region: us-east-1
             role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT }}:role/${{ secrets.CI_IAM_ROLE }}
-
+        
         - name: Login to Amazon ECR
           id: login-ecr
           uses: aws-actions/amazon-ecr-login@v2
-
+        
         - name: Set up machine emulation
           uses: docker/setup-qemu-action@v3
 
@@ -124,7 +124,7 @@ jobs:
           id: build-image
           env:
             ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-            ECR_REPOSITORY: jwt-pizza-service
+            ECR_REPOSITORY: 'jwt-pizza-service'
           run: |
             docker build --platform=linux/arm64 -t $ECR_REGISTRY/$ECR_REPOSITORY --push .
-            echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:latest" >> $GITHUB_OUTPUT
+            echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:latest" >>  $GITHUB_OUTPUT
