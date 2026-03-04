@@ -89,7 +89,7 @@ jobs:
           name: package
           path: dist/
       
-    deploy:
+  deploy:
       runs-on: ubuntu-latest
       permissions:
         id-token: write
