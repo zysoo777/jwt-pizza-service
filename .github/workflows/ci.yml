@@ -89,19 +89,19 @@ jobs:
           name: package
           path: dist/
       
-        deploy:
-          runs-on: ubuntu-latest
-          permissions:
-            id-token: write
-          needs: build
-          env:
-            version: ${{needs.build.outputs.version}}
+    deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    needs: build
+    env:
+      version: ${{needs.build.outputs.version}}
 
-        steps:
-          - name: Download distribution artifact
-            uses: actions/download-artifact@v4
-            with:
-              name: package
+    steps:
+      - name: Download distribution artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: package
 
       - name: Create OIDC token to AWS
         uses: aws-actions/configure-aws-credentials@v4
@@ -127,4 +127,4 @@ jobs:
           ECR_REPOSITORY: jwt-pizza-service
         run: |
           docker build --platform=linux/arm64 -t $ECR_REGISTRY/$ECR_REPOSITORY --push .
-          echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:latest" >>  $GITHUB_OUTPUT
+          echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:latest" >> $GITHUB_OUTPUT
