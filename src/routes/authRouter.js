@@ -87,7 +87,7 @@ authRouter.put(
       metrics.userLoggedIn();
 
       res.json({ user, token: auth });
-    } catch (err) {
+    } catch {
       metrics.authAttempt(false);
       res.status(401).json({ message: 'unauthorized' });
     }
