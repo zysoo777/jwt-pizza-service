@@ -1,6 +1,7 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const config = require('../config.js');
+const metrics = require('../metrics');
 const { asyncHandler } = require('../endpointHelper.js');
 const { DB, Role } = require('../database/database.js');
 
@@ -36,7 +37,6 @@ async function setAuthUser(req, res, next) {
   if (token) {
     try {
       if (await DB.isLoggedIn(token)) {
-        // Check the database to make sure the token is valid.
         req.user = jwt.verify(token, config.jwtSecret);
         req.user.isRole = (role) => !!req.user.roles.find((r) => r.role === role);
       }
@@ -47,7 +47,6 @@ async function setAuthUser(req, res, next) {
   next();
 }
 
-// Authenticate token
 authRouter.authenticateToken = (req, res, next) => {
   if (!req.user) {
     return res.status(401).send({ message: 'unauthorized' });
@@ -55,7 +54,6 @@ authRouter.authenticateToken = (req, res, next) => {
   next();
 };
 
-// register
 authRouter.post(
   '/',
   asyncHandler(async (req, res) => {
@@ -63,29 +61,45 @@ authRouter.post(
     if (!name || !email || !password) {
       return res.status(400).json({ message: 'name, email, and password are required' });
     }
-    const user = await DB.addUser({ name, email, password, roles: [{ role: Role.Diner }] });
+
+    const user = await DB.addUser({
+      name,
+      email,
+      password,
+      roles: [{ role: Role.Diner }],
+    });
+
     const auth = await setAuth(user);
-    res.json({ user: user, token: auth });
+    res.json({ user, token: auth });
   })
 );
 
-// login
 authRouter.put(
   '/',
   asyncHandler(async (req, res) => {
     const { email, password } = req.body;
-    const user = await DB.getUser(email, password);
-    const auth = await setAuth(user);
-    res.json({ user: user, token: auth });
+
+    try {
+      const user = await DB.getUser(email, password);
+      const auth = await setAuth(user);
+
+      metrics.authAttempt(true);
+      metrics.userLoggedIn();
+
+      res.json({ user, token: auth });
+    } catch (err) {
+      metrics.authAttempt(false);
+      res.status(401).json({ message: 'unauthorized' });
+    }
   })
 );
 
-// logout
 authRouter.delete(
   '/',
   authRouter.authenticateToken,
   asyncHandler(async (req, res) => {
     await clearAuth(req);
+    metrics.userLoggedOut();
     res.json({ message: 'logout successful' });
   })
 );
