@@ -4,6 +4,7 @@ const config = require('../config.js');
 const { StatusCodeError } = require('../endpointHelper.js');
 const { Role } = require('../model/model.js');
 const dbModel = require('./dbModel.js');
+const logger = require('../logger');
 class DB {
   constructor() {
     this.initialized = this.initializeDatabase();
@@ -341,10 +342,22 @@ class DB {
     return '';
   }
 
-  async query(connection, sql, params) {
-    const [results] = await connection.execute(sql, params);
-    return results;
+  async query(connection, sql, params = []) {
+  let safeParams = params;
+
+  const lowerSql = sql.toLowerCase();
+  if (lowerSql.includes('insert into auth') || lowerSql.includes('token')) {
+    safeParams = params.map((value, index) => (index === 0 ? '[REDACTED]' : value));
   }
+
+  await logger.log('database', {
+    sql,
+    params: safeParams,
+  });
+
+  const [results] = await connection.execute(sql, params);
+  return results;
+}
 
   async getID(connection, key, value, table) {
     const [rows] = await connection.execute(`SELECT id FROM ${table} WHERE ${key}=?`, [value]);
