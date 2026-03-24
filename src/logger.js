@@ -60,7 +60,8 @@ async function log(eventType, data = {}) {
       },
       body: JSON.stringify(payload),
     });
-  } catch (err) {
+  } catch {
+    // Don't let logging failures affect the main application flow
   }
 }
 
