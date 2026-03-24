@@ -17,8 +17,8 @@ function sanitize(data) {
         lowerKey.includes('password') ||
         lowerKey.includes('token') ||
         lowerKey.includes('jwt') ||
-        lowerKey.includes('apikey') ||
-        lowerKey.includes('authorization')
+        lowerKey === 'authorization' ||
+        lowerKey.includes('apikey')
       ) {
         sanitized[key] = '[REDACTED]';
       } else {
@@ -33,7 +33,9 @@ function sanitize(data) {
 }
 
 async function log(eventType, data = {}) {
-  console.log('sending log:', eventType, sanitize(data));
+  if (process.env.NODE_ENV === 'test') {
+    return;
+  }
 
   try {
     const payload = {
@@ -43,17 +45,12 @@ async function log(eventType, data = {}) {
             source: config.logging.source,
             type: eventType,
           },
-          values: [
-            [
-              `${Date.now() * 1000000}`,
-              JSON.stringify(sanitize(data)),
-            ],
-          ],
+          values: [[`${Date.now() * 1000000}`, JSON.stringify(sanitize(data))]],
         },
       ],
     };
 
-    const response = await fetch(config.logging.endpointUrl, {
+    await fetch(config.logging.endpointUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -63,16 +60,7 @@ async function log(eventType, data = {}) {
       },
       body: JSON.stringify(payload),
     });
-
-    const responseText = await response.text();
-    console.log('log status:', response.status);
-    console.log('log response:', responseText);
-
-    if (!response.ok) {
-      console.log('Failed to send log to Grafana');
-    }
   } catch (err) {
-    console.log('Logger error:', err.message);
   }
 }
 
