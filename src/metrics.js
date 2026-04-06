@@ -22,19 +22,20 @@ const pizzaStats = {
 
 function requestTracker(req, res, next) {
   const start = Date.now();
-  const key = `${req.method} ${req.path}`;
-
-  requests[key] = (requests[key] || 0) + 1;
+  const latencyKey = `${req.method} ${req.path}`;
 
   res.on('finish', () => {
     const latency = Date.now() - start;
 
-    if (!endpointLatencies[key]) {
-      endpointLatencies[key] = { total: 0, count: 0 };
+    const requestKey = `${req.method} ${req.path} ${res.statusCode}`;
+    requests[requestKey] = (requests[requestKey] || 0) + 1;
+
+    if (!endpointLatencies[latencyKey]) {
+      endpointLatencies[latencyKey] = { total: 0, count: 0 };
     }
 
-    endpointLatencies[key].total += latency;
-    endpointLatencies[key].count += 1;
+    endpointLatencies[latencyKey].total += latency;
+    endpointLatencies[latencyKey].count += 1;
   });
 
   next();
@@ -161,13 +162,16 @@ function startPeriodicMetricsReporting(period = 10000) {
       const metrics = [];
 
       Object.keys(requests).forEach((key) => {
-        const [method, ...pathParts] = key.split(' ');
-        const path = pathParts.join(' ');
+        const parts = key.split(' ');
+        const method = parts[0];
+        const status = parts[parts.length - 1];
+        const path = parts.slice(1, -1).join(' ');
 
         metrics.push(
           createMetric('http_requests', requests[key], '1', 'sum', 'asInt', {
             method,
             path,
+            status,
           })
         );
       });
@@ -233,13 +237,13 @@ function startPeriodicMetricsReporting(period = 10000) {
 
       if (pizzaStats.latencyCount > 0) {
         const avgPizzaLatency = Number(
-            (pizzaStats.latencyTotal / pizzaStats.latencyCount).toFixed(2)
+          (pizzaStats.latencyTotal / pizzaStats.latencyCount).toFixed(2)
         );
 
         metrics.push(
-        createMetric('pizza_latency', avgPizzaLatency, 'ms', 'gauge', 'asDouble', {})
+          createMetric('pizza_latency', avgPizzaLatency, 'ms', 'gauge', 'asDouble', {})
         );
-    }
+      }
 
       console.log('Sending metrics to:', config.metrics.endpointUrl);
       console.log('Metric count:', metrics.length);
